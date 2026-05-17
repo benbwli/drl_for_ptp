@@ -1,9 +1,21 @@
+import sys
+try:
+    import numpy.core
+    sys.modules['numpy._core'] = sys.modules['numpy.core']
+    # Also handle the multiarray submodule if needed by the pickle
+    import numpy.core.multiarray
+    sys.modules['numpy._core.multiarray'] = sys.modules['numpy.core.multiarray']
+except (ImportError, KeyError):
+    pass
+
 import yaml
 import json
 import argparse
 from easydict import EasyDict
 
 from rl.rl import RL
+
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Pytorch implementation of MID')
@@ -41,6 +53,7 @@ def main():
     config.dataset = args.dataset
     config.pre = args.pre
     config.eval_at = args.eval_at
+
 
     # if config.dataset == 'eth':
     #     config.eval_at = 62
