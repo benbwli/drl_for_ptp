@@ -1,5 +1,6 @@
 import sys
 try:
+    import numpy
     import numpy.core
     sys.modules['numpy._core'] = sys.modules['numpy.core']
     # Also handle the multiarray submodule if needed by the pickle
