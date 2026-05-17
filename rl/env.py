@@ -87,6 +87,38 @@ class Env():
         if self.config.reward_name == 'linear':
             reward = -ade
 
+        elif self.config.reward_name == 'conformal_safety':
+            ade = ade.reshape(self.config.worker, self.config.sample)
+            
+            # 1. Standard ADE Reward (Best of 10 baseline, matching average_baseline_linear_10_negative_0.1)
+            sorted_ade, _ = ade.sort(dim=1)
+            clip = ade <= sorted_ade[:, 10-1].unsqueeze(1).repeat(1,20)
+            baseline = ((ade * clip).sum(dim=1) / clip.sum(dim=1)).unsqueeze(1).repeat(1,20)
+            reward_ade = clip * ((-ade) - (-baseline))
+            reward_ade /= reward_ade.std(unbiased=False)
+            reward_ade -= clip.logical_not() * 0.1
+            
+            # 2. Conformal Prediction Safety Penalty
+            # Calculate the calibration score (L2 distance to true future) for all predictions
+            pred_y = predicted_y_pos_rel.reshape(self.config.worker, self.config.sample, 12, 2)
+            true_y = self.y.reshape(self.config.worker, self.config.sample, 12, 2)
+            
+            # L2 distance error at each step
+            step_errors = torch.norm(pred_y - true_y, dim=-1) # (workers, 20, 12)
+            max_step_errors = step_errors.max(dim=-1)[0]     # Max error along trajectory: (workers, 20)
+            min_errors = max_step_errors.min(dim=-1)[0]       # Best prediction error per worker: (workers,)
+            
+            # Conformal calibration: Calculate the 95% quantile error over the batch
+            alpha = 0.05
+            n = self.config.worker
+            q_level = min_errors.quantile(1.0 - alpha * (n + 1) / n) if n > 20 else min_errors.quantile(0.95)
+            
+            # Penalty is proportional to the conformal radius required to cover the batch safely
+            conformal_penalty = -q_level
+            
+            # Combine standard ADE reward with the global conformal safety reward
+            reward = reward_ade + 0.5 * conformal_penalty
+            reward = reward.reshape(self.config.worker * self.config.sample)
 
         elif self.config.reward_name == 'average_baseline_linear_10':
             ade = ade.reshape(self.config.worker , self.config.sample)
