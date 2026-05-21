@@ -26,7 +26,7 @@ class RL():
         # registar
         model_dir = os.path.join("./experiments", self.config.exp_name)
         registrar = ModelRegistrar(model_dir, "cpu")
-        checkpoint = torch.load(os.path.join(model_dir, f"{self.config.dataset}_epoch{self.config.eval_at}.pt"), map_location = "cpu")
+        checkpoint = torch.load(os.path.join(model_dir, f"{self.config.dataset}_epoch{self.config.eval_at}.pt"), map_location = "cpu", weights_only=False)
         registrar.load_models(checkpoint['encoder'])
 
         train_data_path = os.path.join(self.config.data_dir,self.config.dataset + "_train.pkl")
@@ -42,8 +42,31 @@ class RL():
         self.model = AutoEncoder(self.config, encoder = encoder)
         self.model.load_state_dict(checkpoint['ddpm'])
 
-        if self.config.pre:
-            self.model.load_state_dict(torch.load(self.config.pre, map_location = "cpu"))
+        # if self.config.pre:
+        #     self.model.load_state_dict(torch.load(self.config.pre, map_location = "cpu", weights_only=False))
+
+        # 1. Load the raw checkpoint
+        checkpoint = torch.load(self.config.pre, map_location="cpu", weights_only=False)
+
+        # 2. Check if it's the "Nested" version (has 'encoder' and 'ddpm' keys)
+        if 'ddpm' in checkpoint and 'encoder' in checkpoint:
+            print("Detected nested checkpoint. Remapping keys for AutoEncoder...")
+            new_state_dict = {}
+            
+            # Map 'encoder' keys
+            for k, v in checkpoint['encoder'].items():
+                new_state_dict[f'encoder.{k}'] = v
+                
+            # Map 'ddpm' keys to 'diffusion'
+            for k, v in checkpoint['ddpm'].items():
+                new_state_dict[f'diffusion.{k}'] = v
+                
+            # 3. Load the corrected dictionary
+            # strict=False is often needed for diffusion models because of non-trainable buffers
+            self.model.load_state_dict(new_state_dict, strict=False)
+        else:
+            # If it's already flat, load as normal
+            self.model.load_state_dict(checkpoint, strict=False)
 
     @torch.no_grad()
     def get_data(self, mode):

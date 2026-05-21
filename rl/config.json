@@ -1,14 +1,13 @@
 {
-    "device": "cuda:0",
+    "device": "cpu",
     "exp_name": "test",
     "dataset": "hotel",
     "reward_name": "average_baseline_linear_10_negative_0.1",
     "reset": "random",
     "ceof_ref": 1,
     "optimizer": "Adam",
-
     "epochs": 300,
-    "worker": 128,
+    "worker": 4,
     "sample": 20,
     "gamma": 0.95,
     "update_epoch": 10,

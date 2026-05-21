@@ -1,4 +1,4 @@
-from utils import prediction_output_to_trajectories
+from evaluation.trajectory_utils import prediction_output_to_trajectories
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 import numpy as np
@@ -15,7 +15,8 @@ def plot_trajectories(ax,
                       circle_edge_width=0.5,
                       node_circle_size=0.3,
                       batch_num=0,
-                      kde=False):
+                      kde=False,
+                      cp_radius_dict=None):
 
     cmap = ['k', 'b', 'y', 'g', 'r']
 
@@ -42,20 +43,49 @@ def plot_trajectories(ax,
                     color=cmap[node.type.value],
                     linewidth=line_width, alpha=line_alpha)
 
-            ax.plot(future[:, 0],
-                    future[:, 1],
-                    'w--',
-                    path_effects=[pe.Stroke(linewidth=edge_width, foreground='k'), pe.Normal()])
+        # Ground truth future (drawn once per node, outside sample loop)
+        ax.plot(future[:, 0],
+                future[:, 1],
+                'w--',
+                path_effects=[pe.Stroke(linewidth=edge_width, foreground='k'), pe.Normal()])
 
-            # Current Node Position
-            circle = plt.Circle((history[-1, 0],
-                                 history[-1, 1]),
-                                node_circle_size,
-                                facecolor='g',
-                                edgecolor='k',
-                                lw=circle_edge_width,
-                                zorder=3)
-            ax.add_artist(circle)
+        # Current Node Position (drawn once per node)
+        circle = plt.Circle((history[-1, 0],
+                             history[-1, 1]),
+                            node_circle_size,
+                            facecolor='g',
+                            edgecolor='k',
+                            lw=circle_edge_width,
+                            zorder=3)
+        ax.add_artist(circle)
+        
+        # --- Draw the CP Safety Shield (Red Keep-Out Zone) ---
+        # Draw a circle around EACH of the 20 trajectory endpoints
+        # The union of all circles = the total multimodal Keep-Out Zone
+        if cp_radius_dict is not None and node in cp_radius_dict:
+            radius = cp_radius_dict[node]
+            
+            for sample_idx in range(predictions.shape[1]):
+                endpoint = predictions[batch_num, sample_idx, -1, :]  # final position of this trajectory
+                
+                # Draw the shaded red safety circle
+                cp_circle = plt.Circle((endpoint[0], endpoint[1]),
+                                       radius,
+                                       facecolor='red',
+                                       alpha=0.03,
+                                       zorder=2)
+                ax.add_artist(cp_circle)
+                
+                # Draw the dashed outline
+                cp_outline = plt.Circle((endpoint[0], endpoint[1]),
+                                        radius,
+                                        edgecolor='red',
+                                        fill=False,
+                                        linestyle='--',
+                                        linewidth=0.5,
+                                        alpha=0.4,
+                                        zorder=2)
+                ax.add_artist(cp_outline)
 
     ax.axis('equal')
 
@@ -67,6 +97,7 @@ def visualize_prediction(ax,
                          ph,
                          robot_node=None,
                          map=None,
+                         cp_radius_dict=None,
                          **kwargs):
 
     prediction_dict, histories_dict, futures_dict = prediction_output_to_trajectories(prediction_output_dict,
@@ -86,4 +117,4 @@ def visualize_prediction(ax,
 
     if map is not None:
         ax.imshow(map.as_image(), origin='lower', alpha=0.5)
-    plot_trajectories(ax, prediction_dict, histories_dict, futures_dict, *kwargs)
+    plot_trajectories(ax, prediction_dict, histories_dict, futures_dict, cp_radius_dict=cp_radius_dict, **kwargs)

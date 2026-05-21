@@ -208,19 +208,19 @@ class DiffusionTraj(Module):
             t = self.var_sched.uniform_sample_t(batch_size)
 
         alpha_bar = self.var_sched.alpha_bars[t]
-        beta = self.var_sched.betas[t].cuda()
+        beta = self.var_sched.betas[t]
 
-        c0 = torch.sqrt(alpha_bar).view(-1, 1, 1).cuda()       # (B, 1, 1)
-        c1 = torch.sqrt(1 - alpha_bar).view(-1, 1, 1).cuda()   # (B, 1, 1)
+        c0 = torch.sqrt(alpha_bar).view(-1, 1, 1)     # (B, 1, 1)
+        c1 = torch.sqrt(1 - alpha_bar).view(-1, 1, 1)   # (B, 1, 1)
 
-        e_rand = torch.randn_like(x_0).cuda()  # (B, N, d)
+        e_rand = torch.randn_like(x_0)  # (B, N, d)
 
 
         e_theta = self.net(c0 * x_0 + c1 * e_rand, beta=beta, context=context)
         loss = F.mse_loss(e_theta.view(-1, point_dim), e_rand.view(-1, point_dim), reduction='mean')
         return loss
 
-    def sample(self, num_points, context, sample, bestof, point_dim=2, flexibility=0.0, ret_traj=False):
+    def sample(self, num_points, context, sample, bestof, point_dim=2, flexibility=0.0, ret_traj=False, cp_noise_scale=None):
         traj_list = []
         for i in range(sample):
             batch_size = context.size(0)
@@ -241,7 +241,11 @@ class DiffusionTraj(Module):
                 x_t = traj[t]
                 beta = self.var_sched.betas[[t]*batch_size]
                 e_theta = self.net(x_t, beta=beta, context=context)
-                x_next = c0 * (x_t - c1 * e_theta) + sigma * z
+                # Apply CP-guided noise scaling if provided
+                if cp_noise_scale is not None:
+                    x_next = c0 * (x_t - c1 * e_theta) + sigma * cp_noise_scale * z
+                else:
+                    x_next = c0 * (x_t - c1 * e_theta) + sigma * z
                 traj[t-1] = x_next.detach()     # Stop gradient and save trajectory.
                 traj[t] = traj[t].cpu()         # Move previous output to CPU memory.
                 if not ret_traj:

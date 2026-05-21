@@ -122,7 +122,7 @@ parser.add_argument("--log_tag",
 parser.add_argument('--device',
                     help='what device to perform training on',
                     type=str,
-                    default='cuda:0')
+                    default='cpu') # Changed from 'cuda:0'
 
 parser.add_argument("--eval_device",
                     help="what device to use during evaluation",

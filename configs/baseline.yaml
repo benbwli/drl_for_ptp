@@ -15,8 +15,9 @@ k_eval: 25
 seed: 123
 eval_every: 1
 # Testing
-eval_at: 70
-eval_mode: False
+eval_at: 60
+rl_checkpoint_path: "/Users/benjaminli/Documents/UCL/Year_3/YearLongProject/DRL-for-PTP/rl/log/test/epoch_295.pt"
+eval_mode: True
 ############### Trajectron++ Config #################
 # misc
 conf: None
@@ -40,5 +41,5 @@ scene_freq_mult_eval: False
 scene_freq_mult_viz: False
 no_edge_encoding: False
 # Data Parameters:
-device: cuda
+device: cpu
 eval_device: None

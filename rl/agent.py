@@ -33,10 +33,9 @@ class Agent():
         np.random.seed(self.config.seed)#固定随机数种子
         random.seed(self.config.seed)
         torch.manual_seed(self.config.seed)
-        torch.cuda.manual_seed_all(self.config.seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = True
-        
+        # Just one line to rule them all (on CPU)
+        torch.manual_seed(self.config.seed)
+                
         self.model = model.to(self.config.device)
         self.model.eval()#不使用BN和dropout
         self.ref_model = copy.deepcopy(model).to(self.config.device)
@@ -203,8 +202,9 @@ class Agent():
             predicted_y_pos_rel = torch.cumsum(predicted_y_vel, dim=2) * 0.4
             predicted_y_pos_rel = predicted_y_pos_rel.detach()
 
-            ade = (((predicted_y_pos_rel - y) ** 2).sum(-1)**0.5).mean(-1).min(0)[0]
-            fde = (((predicted_y_pos_rel[:, :, -1] - y[:,  -1])**2).sum(-1)**0.5).min(0)[0]
+            # Fix: .min(1)[0] takes minimum across the 20 samples. .min(0)[0] was incorrectly taking minimum across the 1024 batch size!
+            ade = (((predicted_y_pos_rel - y) ** 2).sum(-1)**0.5).mean(-1).min(1)[0]
+            fde = (((predicted_y_pos_rel[:, :, -1] - y[:, 0, -1])**2).sum(-1)**0.5).min(1)[0]
             ades.append(ade)
             fdes.append(fde)
         
