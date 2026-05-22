@@ -1,0 +1,12 @@
+# Ignore all trajectory plot folders and individual plots
+trajectory_plot_ts*.png
+traj_plots_eth_*/
+
+# Ignore standard python cache and OS junk
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+
+# Ignore processed data/cache if wanted, but keep logs/checkpoints (rl/log/)
+# (logs and model checkpoints will be committed and pushed)
